@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Agricultural Image Classifier</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.2.0/tf.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .upload-section {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            background-color: white;
+            border-radius: 8px;
+        }
+        .preview {
+            max-width: 300px;
+            margin: 20px auto;
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .preview img {
+            max-width: 100%;
+            border-radius: 4px;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>AggriApp Image Classifier</h1>
+    
+    <div class="upload-section">
+        <h2>Upload Images</h2>
+        <div>
+            <label>Main Image:</label>
+            <input type="file" id="imageUpload" accept="image/*">
+        </div>
+        <div>
+            <label>Class Mask:</label>
+            <input type="file" id="classMaskUpload" accept="image/*">
+        </div>
+        <div>
+            <label>Object Mask:</label>
+            <input type="file" id="objectMaskUpload" accept="image/*">
+        </div>
+    </div>
+
+    <div class="preview">
+        <h3>Image Preview</h3>
+        <img id="imagePreview" src="#" alt="Preview" style="display: none;">
+        <img id="classMaskPreview" src="#" alt="Class Mask Preview" style="display: none;">
+        <img id="objectMaskPreview" src="#" alt="Object Mask Preview" style="display: none;">
+    </div>
+
+    <button id="predict" disabled>Predict</button>
+    <div id="result"></div>
+
+    <script>
+        let model;
+        let classNames;
+
+        async function loadModel() {
+            try {
+                model = await tf.loadLayersModel('../model/web_model/model.json');
+                const response = await fetch('../model/web_model/class_names.json');
+                classNames = await response.json();
+                console.log('Model loaded successfully');
+            } catch (error) {
+                console.error('Error loading model:', error);
+            }
+        }
+
+        async function preprocessImage(imageElement) {
+            return tf.tidy(() => {
+                const tensor = tf.browser.fromPixels(imageElement)
+                    .resizeBilinear([224, 224])
+                    .div(255.0)
+                    .expandDims();
+                return tensor;
+            });
+        }
+
+        async function predict() {
+            const imageInput = await preprocessImage(document.getElementById('imagePreview'));
+            const classMaskInput = await preprocessImage(document.getElementById('classMaskPreview'));
+            const objectMaskInput = await preprocessImage(document.getElementById('objectMaskPreview'));
+
+            const prediction = await model.predict([imageInput, classMaskInput, objectMaskInput]);
+            const classIndex = prediction.argMax(1).dataSync()[0];
+            const confidence = prediction.max().dataSync()[0];
+
+            document.getElementById('result').innerHTML = `
+                <h3>Prediction Results:</h3>
+                <p><strong>Class:</strong> ${classNames[classIndex]}</p>
+                <p><strong>Confidence:</strong> ${(confidence * 100).toFixed(2)}%</p>
+            `;
+
+            tf.dispose([imageInput, classMaskInput, objectMaskInput, prediction]);
+        }
+
+        function setupImagePreview(inputId, previewId) {
+            const input = document.getElementById(inputId);
+            const preview = document.getElementById(previewId);
+
+            input.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                        checkIfAllUploaded();
+                    }
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        function checkIfAllUploaded() {
+            const allUploaded = document.getElementById('imagePreview').src !== '#' &&
+                              document.getElementById('classMaskPreview').src !== '#' &&
+                              document.getElementById('objectMaskPreview').src !== '#';
+            document.getElementById('predict').disabled = !allUploaded;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadModel();
+            setupImagePreview('imageUpload', 'imagePreview');
+            setupImagePreview('classMaskUpload', 'classMaskPreview');
+            setupImagePreview('objectMaskUpload', 'objectMaskPreview');
+            document.getElementById('predict').addEventListener('click', predict);
+        });
+    </script>
+</body>
+</html>
