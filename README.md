@@ -22,4 +22,4 @@ AggriApp Image Classifier is a specialized machine learning project designed to 
 - **OpenCV**: For image processing and enhancement.
 - **Flask/FastAPI**: Backend integration for deployment. 
 
-This repository serves as a foundation for seed-focused agricultural applications, fostering innovation and efficiency in the field.
+
