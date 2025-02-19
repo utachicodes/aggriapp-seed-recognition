@@ -80,7 +80,7 @@ def load_dataset(data_path):
     label_map = {old_label: new_label for new_label, old_label in enumerate(sorted(unique_classes))}
     labels = np.array([label_map[label] for label in labels])
     
-    class_names = [f"class_{i}" for i in range(num_classes)]  # You can update these names later
+    class_names = [f"class_{i}" for i in range(num_classes)]  
     
     return images, class_masks, instance_masks, labels, class_names, num_classes
 
